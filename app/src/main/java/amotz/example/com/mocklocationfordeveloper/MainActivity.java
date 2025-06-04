@@ -140,6 +140,10 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     }
 
     public void testMock(View view) { // On some version do like this
+        triggerMockLocation();
+    }
+
+    private void triggerMockLocation() {
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             askRunTimePermissions();
             return;
@@ -228,6 +232,8 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
             selectedMarker.remove();
         }
         selectedMarker = mMap.addMarker(new MarkerOptions().position(latLng));
+        // Trigger mock location immediately after selecting a point on the map
+        triggerMockLocation();
     }
 }
 
