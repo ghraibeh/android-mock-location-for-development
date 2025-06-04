@@ -19,6 +19,14 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
 
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
+
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
@@ -29,7 +37,9 @@ import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity implements GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener,
-        LocationListener {
+        LocationListener,
+        OnMapReadyCallback,
+        GoogleMap.OnMapClickListener {
 
     private static final int MY_PERMISSIONS_REQUEST_FINE_LOCATION = 1;
     String TAG = "MainActivity";
@@ -39,12 +49,22 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     final float dummylong = 10;
     GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
+    private GoogleMap mMap;
+    private double selectedLat = dummyLat;
+    private double selectedLon = dummylong;
+    private Marker selectedMarker;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.map);
+        if (mapFragment != null) {
+            mapFragment.getMapAsync(this);
+        }
 
         if (!isMockSettingsON()) {
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -127,8 +147,8 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         if (mGoogleApiClient.isConnected()) {
             LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
             Intent intent = new Intent();
-            intent.putExtra("lat", String.valueOf(dummyLat));
-            intent.putExtra("lon", String.valueOf(dummylong));
+            intent.putExtra("lat", String.valueOf(selectedLat));
+            intent.putExtra("lon", String.valueOf(selectedLon));
             intent.setAction("send.mock");
             sendBroadcast(intent);
         } else {
@@ -190,6 +210,24 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
             Toast.makeText(this,String.format(Locale.US,"setting mock to Latitude=%f, Longitude=%f Altitude=%f Accuracy=%f",
                     location.getLatitude(), location.getLongitude(), location.getAltitude(), location.getAccuracy()),Toast.LENGTH_SHORT).show();
         }
+    }
+
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        mMap = googleMap;
+        mMap.setOnMapClickListener(this);
+        LatLng start = new LatLng(dummyLat, dummylong);
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(start, 3f));
+    }
+
+    @Override
+    public void onMapClick(LatLng latLng) {
+        selectedLat = latLng.latitude;
+        selectedLon = latLng.longitude;
+        if (selectedMarker != null) {
+            selectedMarker.remove();
+        }
+        selectedMarker = mMap.addMarker(new MarkerOptions().position(latLng));
     }
 }
 
