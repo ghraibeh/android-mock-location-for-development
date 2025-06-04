@@ -20,16 +20,22 @@ public class adbBrodcastReceiver extends BroadcastReceiver {
 
 
         if (intent.getAction().equals("stop.mock")) {
-            if (mockGPS!=null) {
+            if (mockGPS != null) {
                 mockGPS.shutdown();
+                mockGPS = null;
             }
-            if (mockWifi!=null) {
+            if (mockWifi != null) {
                 mockWifi.shutdown();
+                mockWifi = null;
             }
         }
         else {
-            mockGPS = new MockLocationProvider(LocationManager.GPS_PROVIDER, context);
-            mockWifi = new MockLocationProvider(LocationManager.NETWORK_PROVIDER, context);
+            if (mockGPS == null) {
+                mockGPS = new MockLocationProvider(LocationManager.GPS_PROVIDER, context);
+            }
+            if (mockWifi == null) {
+                mockWifi = new MockLocationProvider(LocationManager.NETWORK_PROVIDER, context);
+            }
 
             double lat, lon, alt;
             float accurate;
