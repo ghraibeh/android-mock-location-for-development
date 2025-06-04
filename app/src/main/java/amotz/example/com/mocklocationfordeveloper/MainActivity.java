@@ -6,6 +6,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.os.Handler;
 import android.os.Build;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
@@ -26,6 +27,8 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -33,7 +36,9 @@ import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 
+import java.util.ArrayList;
 import java.util.Locale;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener,
@@ -54,11 +59,24 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     private double selectedLon = dummylong;
     private Marker selectedMarker;
 
+    private boolean recording = false;
+    private List<LatLng> currentPath = new ArrayList<>();
+    private Polyline currentPolyline;
+    private PathModel selectedPath;
+    private PathStorage pathStorage;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        pathStorage = new PathStorage(this);
+
+        View startBtn = findViewById(R.id.startPathButton);
+        if (startBtn != null) {
+            startBtn.setVisibility(View.GONE);
+        }
 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -156,6 +174,84 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         }
     }
 
+    private void sendMock(double lat, double lon) {
+        Intent intent = new Intent();
+        intent.putExtra("lat", String.valueOf(lat));
+        intent.putExtra("lon", String.valueOf(lon));
+        intent.setAction("send.mock");
+        sendBroadcast(intent);
+    }
+
+    public void recordPath(View view) {
+        if (!recording) {
+            recording = true;
+            currentPath.clear();
+            if (currentPolyline != null) {
+                currentPolyline.remove();
+            }
+            ((android.widget.Button)view).setText(getString(R.string.save_path));
+        } else {
+            final android.widget.EditText input = new android.widget.EditText(this);
+            new AlertDialog.Builder(this)
+                    .setTitle("Path name")
+                    .setView(input)
+                    .setPositiveButton("Save", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            String name = input.getText().toString();
+                            pathStorage.savePath(new PathModel(name, new ArrayList<>(currentPath)));
+                            recording = false;
+                            ((android.widget.Button)view).setText(getString(R.string.record_path));
+                        }
+                    })
+                    .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            recording = false;
+                            ((android.widget.Button)view).setText(getString(R.string.record_path));
+                        }
+                    }).show();
+        }
+    }
+
+    public void selectPath(View view) {
+        final List<PathModel> paths = pathStorage.getPaths();
+        if (paths.isEmpty()) {
+            Toast.makeText(this, "No paths", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        CharSequence[] names = new CharSequence[paths.size()];
+        for (int i = 0; i < paths.size(); i++) {
+            names[i] = paths.get(i).name;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Choose path")
+                .setItems(names, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        selectedPath = paths.get(which);
+                        if (currentPolyline != null) currentPolyline.remove();
+                        PolylineOptions opts = new PolylineOptions().addAll(selectedPath.points);
+                        currentPolyline = mMap.addPolyline(opts);
+                        View startBtn = findViewById(R.id.startPathButton);
+                        if (startBtn != null) startBtn.setVisibility(View.VISIBLE);
+                    }
+                }).show();
+    }
+
+    public void startPath(View view) {
+        if (selectedPath == null) return;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                for (LatLng p : selectedPath.points) {
+                    sendMock(p.latitude, p.longitude);
+                    try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
+                }
+            }
+        }).start();
+    }
+
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         Log.i(TAG, "onConnected");
@@ -218,16 +314,28 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         mMap.setOnMapClickListener(this);
         LatLng start = new LatLng(dummyLat, dummylong);
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(start, 3f));
+        if (selectedPath != null) {
+            PolylineOptions opts = new PolylineOptions().addAll(selectedPath.points);
+            currentPolyline = mMap.addPolyline(opts);
+        }
     }
 
     @Override
     public void onMapClick(LatLng latLng) {
-        selectedLat = latLng.latitude;
-        selectedLon = latLng.longitude;
-        if (selectedMarker != null) {
-            selectedMarker.remove();
+        if (recording) {
+            currentPath.add(latLng);
+            if (currentPolyline != null) {
+                currentPolyline.remove();
+            }
+            currentPolyline = mMap.addPolyline(new PolylineOptions().addAll(currentPath));
+        } else {
+            selectedLat = latLng.latitude;
+            selectedLon = latLng.longitude;
+            if (selectedMarker != null) {
+                selectedMarker.remove();
+            }
+            selectedMarker = mMap.addMarker(new MarkerOptions().position(latLng));
         }
-        selectedMarker = mMap.addMarker(new MarkerOptions().position(latLng));
     }
 }
 
