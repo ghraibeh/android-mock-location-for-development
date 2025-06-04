@@ -5,6 +5,10 @@
         [-e alt &lt;altitude>] [-e accurate &lt;accurate>]</string>
     <string name="example">        adb  shell am broadcast -a send.mock  -e lat 15.3 -e lon 99</string>
     <string name="testButton">TEST YOU CAN SIGNAL A MOCK LOACTION</string>
+    <string name="record_path">Record Path</string>
+    <string name="save_path">Save Path</string>
+    <string name="select_path">Select Path</string>
+    <string name="start_path">Start Path</string>
     <string name="usage">Usage:</string>
     <string name="exampleTitle">Example:</string>
     <string name="title_activity_help">help</string>
